@@ -82,7 +82,7 @@ test('ask_human questionnaires preserve questions and accept positional answers'
   const pending = await manager.wait({ runId, cwd, waitMs: 1000 });
   assert.equal(pending.approvals[0].questions[0].options[1], 'B');
   await manager.decideApproval({ runId, cwd, approvalId: approval.id, decision: 'answer', answers: ['B'] });
-  assert.deepEqual(backend.requests.at(-1).body, { decision: 'answer', answers: ['B'] });
+  assert.deepEqual(backend.requests.find(item => item.path === `/v1/approvals/${approval.id}`).body, { decision: 'answer', answers: ['B'] });
 });
 
 test('invalid decision shapes fail before an approval POST', async t => {
@@ -133,4 +133,37 @@ test('resume skips historical terminal events and keeps attendance for new appro
   const finished = await manager.wait({ runId, cwd, waitMs: 500 });
   assert.equal(finished.status, 'completed');
   assert.equal(finished.finalAnswer, 'resumed result');
+});
+
+test('questionnaire denial rejects answers instead of discarding them', async t => {
+  const { backend, manager, cwd } = await setup(t);
+  const { runId } = await manager.spawn({ task: 'decline', cwd, waitMs: 0 });
+  const question = backend.addApproval(runId, { kind: 'question', questions: [{ question: 'Continue?' }] });
+  await assert.rejects(
+    manager.decideApproval({ runId, cwd, approvalId: question.id, decision: 'deny', answers: ['yes'] }),
+    /answers.*answer/i
+  );
+  assert.equal(backend.requests.filter(item => item.path.startsWith('/v1/approvals/')).length, 0);
+});
+
+test('terminal metadata without a status returns an explicit error', async t => {
+  const { backend, manager, cwd } = await setup(t);
+  const { runId } = await manager.spawn({ task: 'malformed completion', cwd, waitMs: 0 });
+  backend.finishRun(runId, null, null);
+  const result = await manager.wait({ runId, cwd, waitMs: 500 });
+  assert.equal(result.status, 'error');
+  assert.match(result.error, /terminal.*status/i);
+});
+
+test('waiting is driven by SSE approval events instead of polling', async t => {
+  const { backend, manager, cwd } = await setup(t);
+  const { runId } = await manager.spawn({ task: 'event-driven approval', cwd, waitMs: 0 });
+  const waiting = manager.wait({ runId, cwd, waitMs: 500 });
+  await new Promise(resolve => setTimeout(resolve, 100));
+  const reads = () => backend.requests.filter(item => item.path === `/v1/runs/${runId}/approvals`).length;
+  assert.equal(reads(), 2);
+  backend.addApproval(runId, { reason: 'SSE wakeup' });
+  const result = await waiting;
+  assert.equal(result.status, 'awaiting_approval');
+  assert.equal(reads(), 3);
 });

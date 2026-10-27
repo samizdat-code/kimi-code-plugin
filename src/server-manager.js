@@ -135,11 +135,19 @@ export function createServerManager({ config, spawnImpl = spawn, fetchImpl = fet
       }
       throw new Error(`Samizdat did not become ready within ${effectiveConfig.startupTimeoutMs} ms`);
     } catch (error) {
+      let generatedToken = null;
+      try {
+        generatedToken = (await fs.readFile(
+          path.join(home, '.config', 'samizdat', 'http', `${httpPort}.token`),
+          'utf8'
+        )).trim();
+      } catch {}
       await stopEntry(entry);
       const suffix = entry.diagnostics.trim() ? `: ${entry.diagnostics.trim().slice(-500)}` : '';
-      const safeSuffix = effectiveConfig.token
-        ? suffix.split(effectiveConfig.token).join('[redacted]')
-        : suffix;
+      const safeSuffix = [effectiveConfig.token, generatedToken].filter(Boolean).reduce(
+        (text, secret) => text.split(secret).join('[redacted]'),
+        suffix
+      );
       throw new Error(`Samizdat failed to start: ${error.message}${safeSuffix}`);
     }
   }

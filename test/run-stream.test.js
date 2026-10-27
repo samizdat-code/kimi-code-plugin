@@ -133,3 +133,22 @@ test('transient read failures reconnect with the last event ID', async () => {
   assert.equal(errors.length, 0);
   stream.close();
 });
+
+test('stream reports each successful connection for approval reconciliation', async () => {
+  let connections = 0;
+  const client = {
+    openEvents: async () => sseResponse([]),
+    journal: async () => ({ events: [] })
+  };
+  const stream = createRunStream({
+    client,
+    runId: 'run-1',
+    onReady: () => { connections += 1; },
+    retryDelayMs: 1
+  });
+  stream.start();
+  await tick();
+  await tick();
+  stream.close();
+  assert.ok(connections >= 2);
+});

@@ -10,7 +10,8 @@ fs.mkdirSync(tokenDir, { recursive: true });
 const tokenPath = path.join(tokenDir, `${port}.token`);
 fs.writeFileSync(tokenPath, token, { mode: 0o600 });
 
-const server = http.createServer((req, res) => {
+const activeStreams = new Set();
+const server = http.createServer(async (req, res) => {
   res.setHeader('content-type', 'application/json');
   if (req.url === '/health') {
     res.end(JSON.stringify({ status: 'ok' }));
@@ -32,11 +33,44 @@ const server = http.createServer((req, res) => {
     }));
     return;
   }
+  if (req.method === 'POST' && req.url === '/v1/runs') {
+    for await (const _chunk of req) {}
+    res.end(JSON.stringify({ run_id: 'run-1', status: 'running', beam_width: 1, max_turns: 100 }));
+    return;
+  }
+  if (req.url === '/v1/runs/run-1/approvals') {
+    res.end(JSON.stringify({ approvals: [] }));
+    return;
+  }
+  if (req.url === '/v1/runs/run-1') {
+    res.end(JSON.stringify({ run: { id: 'run-1', status: 'running', final_answer: null } }));
+    return;
+  }
+  if (req.url.startsWith('/v1/runs/run-1/events')) {
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    activeStreams.add(res);
+    res.on('close', () => {
+      activeStreams.delete(res);
+      if (process.env.FAKE_SAMIZDAT_STREAM_CLOSED_FILE) {
+        fs.writeFileSync(process.env.FAKE_SAMIZDAT_STREAM_CLOSED_FILE, 'closed');
+      }
+    });
+    return;
+  }
+  if (req.url.startsWith('/v1/runs/run-1/journal')) {
+    res.end(JSON.stringify({ events: [] }));
+    return;
+  }
   res.statusCode = 404;
   res.end(JSON.stringify({ error: { message: 'not found' } }));
 });
 
-server.listen(port, '127.0.0.1');
+if (process.env.FAKE_SAMIZDAT_PRINT_TOKEN_AND_STALL === '1') {
+  console.log(`startup token: ${token}`);
+  setInterval(() => {}, 1000);
+} else {
+  server.listen(port, '127.0.0.1');
+}
 function stop() {
   server.close(() => {
     fs.rmSync(tokenPath, { force: true });

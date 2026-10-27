@@ -43,6 +43,10 @@ export async function createFakeSamizdatServer({ root, token = 'fake-token' } = 
     const id = approval.id || `approval-${approvals.size + 1}`;
     const record = { id, run_id: runId, status: 'pending', kind: 'permission', ...approval };
     approvals.set(id, record);
+    const run = runs.get(runId);
+    for (const stream of run.streams) {
+      stream.write(`event: approval\ndata: ${JSON.stringify({ id, status: 'pending', kind: record.kind })}\n\n`);
+    }
     return record;
   }
 
@@ -98,6 +102,7 @@ export async function createFakeSamizdatServer({ root, token = 'fake-token' } = 
 
     match = url.pathname.match(/^\/v1\/runs\/([^/]+)\/approvals$/);
     if (match) {
+      requests.push({ path: url.pathname, method: 'GET' });
       return json(res, 200, { approvals: [...approvals.values()].filter(item => item.run_id === match[1] && item.status === 'pending') });
     }
 

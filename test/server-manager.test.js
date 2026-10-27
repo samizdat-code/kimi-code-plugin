@@ -5,6 +5,7 @@ import fsSync from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createServerManager } from '../src/server-manager.js';
 
@@ -152,4 +153,31 @@ test('external loopback mode loads its token from the Samizdat token file', asyn
   });
   const connected = await manager.clientFor(home);
   assert.equal((await connected.client.project()).model, 'file-authenticated');
+});
+
+test('failed readiness redacts the generated token and terminates the live child', async t => {
+  const home = await workspace(t);
+  const project = await workspace(t);
+  const manager = createServerManager({
+    config: config(home, { home, startupTimeoutMs: 500 }),
+    spawnImpl: (binary, args, options) => {
+      return spawn(binary, args, {
+        ...options,
+        env: { ...options.env, FAKE_SAMIZDAT_PRINT_TOKEN_AND_STALL: '1' }
+      });
+    }
+  });
+  t.after(() => manager.close());
+  let failure;
+  try {
+    await manager.clientFor(project);
+    assert.fail('startup should fail');
+  } catch (error) {
+    failure = error;
+  }
+  assert.doesNotMatch(failure.message, /fake-samizdat-token/);
+  assert.match(failure.message, /\[redacted\]/);
+  const tokenDir = path.join(home, '.config', 'samizdat', 'http');
+  const files = await fs.readdir(tokenDir);
+  assert.deepEqual(files, []);
 });

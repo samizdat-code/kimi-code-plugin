@@ -59,7 +59,7 @@ Every result includes concise text and structured MCP content. Run IDs are requi
 
 ## Approval handling
 
-The plugin keeps an authorized server-sent-events stream open for each active run. Besides delivering run events, this registers attendance so Samizdat's `attended` approval mode can ask instead of refuse.
+The plugin keeps an authorized server-sent-events stream open for each active run. Besides delivering run events, this registers attendance so Samizdat's `attended` approval mode can ask instead of refuse. Samizdat's `approval` events wake the adapter, which then fetches the full approval/question payload over HTTP; approvals are not polled. Reconnections also trigger an approval-state reconciliation.
 
 Pending approvals return immediately to Kimi. Kimi then:
 

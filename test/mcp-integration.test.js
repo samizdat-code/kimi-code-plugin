@@ -114,3 +114,32 @@ test('MCP timeout covers managed startup, run start, verification, and initial w
   const worstCaseSpawnMs = 30000 + 150000 + 10000 + 30000;
   assert.ok(manifest.mcpServers.samizdat.toolTimeoutMs > worstCaseSpawnMs);
 });
+
+test('managed MCP shutdown closes active attendance and terminates its child', async t => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), 'samizdat-mcp-home-'));
+  const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'samizdat-mcp-managed-'));
+  const marker = path.join(home, 'stream-closed');
+  const env = { ...process.env, HOME: home, SAMIZDAT_BIN: path.join(pluginRoot, 'test/helpers/fake-samizdat-bin.js'), FAKE_SAMIZDAT_STREAM_CLOSED_FILE: marker };
+  delete env.SAMIZDAT_URL;
+  delete env.SAMIZDAT_TOKEN;
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: ['src/server.js'],
+    cwd: pluginRoot,
+    env,
+    stderr: 'pipe'
+  });
+  const client = new Client({ name: 'samizdat-managed-shutdown-test', version: '1.0.0' });
+  await client.connect(transport);
+  t.after(async () => {
+    await client.close();
+    await fs.rm(home, { recursive: true, force: true });
+    await fs.rm(cwd, { recursive: true, force: true });
+  });
+  const spawned = await client.callTool({ name: 'spawn_samizdat_agent', arguments: { task: 'keep running', cwd, waitMs: 0 } });
+  assert.equal(spawned.structuredContent.status, 'running');
+  await client.close();
+  await fs.access(marker);
+  const tokenDir = path.join(home, '.config', 'samizdat', 'http');
+  assert.deepEqual(await fs.readdir(tokenDir), []);
+});

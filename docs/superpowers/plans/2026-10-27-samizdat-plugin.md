@@ -95,7 +95,7 @@
 - [ ] **Step 2: Add invalid-decision tests** proving permission `answer`, questionnaire `allow`, questionnaire `answer` without positional `answers`, and permission-only `always` misuse fail before HTTP submission.
 - [ ] **Step 3: Add control tests** for message/branch payloads, interrupt, abort, and resume with `max_turns`/`message` plus reopened attendance.
 - [ ] **Step 4: Run `node --test test/runs.test.js`** and confirm the expected module-not-found failure.
-- [ ] **Step 5: Implement the fake HTTP/SSE server and run manager** with per-run event buffers/waiters, pending-approval polling, immediate approval returns, cursor-safe waiting, and retained final results.
+- [ ] **Step 5: Implement the fake HTTP/SSE server and run manager** with per-run event buffers/waiters, SSE-driven approval wakeups, immediate approval returns, cursor-safe waiting, and retained final results.
 - [ ] **Step 6: Run the Task 4 tests** and confirm all pass.
 
 ### Task 5: MCP Tool Surface and End-to-End Integration

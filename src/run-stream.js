@@ -1,6 +1,6 @@
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export function createRunStream({ client, runId, since = 0, onEvent = () => {}, onError = () => {}, retryDelayMs = 250 }) {
+export function createRunStream({ client, runId, since = 0, onEvent = () => {}, onError = () => {}, onReady = () => {}, retryDelayMs = 250 }) {
   let controller = null;
   let started = false;
   let closed = false;
@@ -36,6 +36,7 @@ export function createRunStream({ client, runId, since = 0, onEvent = () => {}, 
           lastEventId: cursor || undefined,
           signal: controller.signal
         });
+        onReady();
         const parser = (await import('./sse.js')).createSseParser(emit);
         const reader = response.body.getReader();
         const decoder = new TextDecoder();

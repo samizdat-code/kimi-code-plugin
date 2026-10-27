@@ -27,7 +27,8 @@ export function createRunManager({ servers }) {
       onError: error => {
         state.error = error;
         wake(state);
-      }
+      },
+      onReady: () => wake(state)
     });
     state.stream.start();
   }
@@ -57,8 +58,18 @@ export function createRunManager({ servers }) {
   async function finalResult(state) {
     const detail = await state.client.runDetail(state.runId);
     const run = detail?.run || detail;
+    const status = run?.status || state.terminal?.status;
+    if (!status) {
+      return {
+        status: 'error',
+        runId: state.runId,
+        cwd: state.cwd,
+        error: 'Samizdat terminal response did not include a terminal status',
+        run
+      };
+    }
     return {
-      status: run?.status || state.terminal?.status || 'completed',
+      status,
       runId: state.runId,
       cwd: state.cwd,
       finalAnswer: run?.final_answer ?? null,
@@ -105,7 +116,7 @@ export function createRunManager({ servers }) {
           run: state.started
         };
       }
-      await waitForEvent(state, Math.min(remaining, 50));
+      await waitForEvent(state, remaining);
     }
   }
 
@@ -147,6 +158,9 @@ export function createRunManager({ servers }) {
         throw new Error('A question approval requires decision answer or deny');
       }
       if (input.always !== undefined) throw new Error('always is only valid for permission approvals');
+      if (input.decision !== 'answer' && input.answers !== undefined) {
+        throw new Error('answers are only valid with decision answer');
+      }
       if (input.decision === 'answer') {
         if (!Array.isArray(input.answers)) throw new Error('A question answer requires positional answers');
         const expected = approval.questions?.length;
