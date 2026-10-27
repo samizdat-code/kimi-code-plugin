@@ -1,0 +1,18 @@
+{
+  "name": "samizdat",
+  "version": "1.0.0",
+  "description": "Delegate coding tasks to Samizdat agents and control their runs from Kimi Code",
+  "interface": {
+    "displayName": "Samizdat",
+    "shortDescription": "Samizdat subagents with approvals and run control"
+  },
+  "systemPrompt": "Use the samizdat MCP tools to delegate self-contained tasks to Samizdat. Always pass the absolute workspace cwd and complete task context. After every spawn or wait, inspect pending approvals immediately. For permission gates, triage the requested action against the user's task, existing permissions, reversibility, and blast radius; allow routine authorized work, deny unsafe or out-of-scope work, and ask the user when approval is genuinely needed. Surface ask_human questionnaires to the user unless already answered unambiguously. Call decide_samizdat_approval and then wait_samizdat_agent again; never leave a run parked on an untriaged approval.",
+  "mcpServers": {
+    "samizdat": {
+      "command": "node",
+      "args": ["./src/server.js"],
+      "cwd": "./",
+      "toolTimeoutMs": 240000
+    }
+  }
+}

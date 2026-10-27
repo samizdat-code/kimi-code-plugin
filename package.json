@@ -1,0 +1,23 @@
+{
+  "name": "kimi-samizdat-plugin",
+  "version": "1.0.0",
+  "description": "Samizdat subagents and run control for Kimi Code",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js",
+    "check": "node scripts/check.js"
+  },
+  "files": [
+    "src/",
+    "kimi.plugin.json",
+    "README.md"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2"
+  }
+}
